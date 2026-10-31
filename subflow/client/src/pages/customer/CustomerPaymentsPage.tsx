@@ -69,6 +69,11 @@ export const CustomerPaymentsPage: React.FC = () => {
                       <span className="px-2 py-0.5 rounded-full bg-slate-100 font-semibold text-slate-700 text-[10px]">
                         {p.paymentMethod.replace('_', ' ')}
                       </span>
+                      {p.transactionReference.startsWith('DEMO-') && (
+                        <span className="ml-1.5 rounded-full border border-[#dfeae5] bg-[#edf3f1] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#173b32]">
+                          Demo
+                        </span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-500">
                       {p.transactionReference}

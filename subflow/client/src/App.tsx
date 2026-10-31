@@ -32,6 +32,7 @@ import { CustomerPlansPage } from './pages/customer/CustomerPlansPage';
 import { CustomerInvoicesPage } from './pages/customer/CustomerInvoicesPage';
 import { CustomerPaymentsPage } from './pages/customer/CustomerPaymentsPage';
 import { CustomerProfilePage } from './pages/customer/CustomerProfilePage';
+import { CustomerCheckoutPage, CustomerCheckoutSuccessPage } from './pages/customer/CustomerCheckoutPage';
 
 // Route Redirection Helper
 const RootRedirect: React.FC = () => {
@@ -97,6 +98,8 @@ export const App: React.FC = () => {
                 </ProtectedRoute>
               }
             >
+              <Route path="/portal/checkout/success" element={<CustomerCheckoutSuccessPage />} />
+              <Route path="/portal/checkout/:planId" element={<CustomerCheckoutPage />} />
               <Route path="/portal" element={<CustomerDashboardPage />} />
               <Route path="/portal/subscriptions" element={<CustomerSubscriptionsPage />} />
               <Route path="/portal/plans" element={<CustomerPlansPage />} />
