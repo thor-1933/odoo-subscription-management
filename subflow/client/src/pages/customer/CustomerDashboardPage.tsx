@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -19,34 +19,72 @@ export const CustomerDashboardPage: React.FC = () => {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoadError, setHasLoadError] = useState(false);
+
+  const fetchPortalData = useCallback(async () => {
+    setLoading(true);
+    setHasLoadError(false);
+    try {
+      const [subRes, invRes, payRes] = await Promise.all([
+        api.get('/subscriptions'),
+        api.get('/invoices'),
+        api.get('/payments'),
+      ]);
+      setSubscriptions(subRes.data.data || []);
+      setInvoices(invRes.data.data || []);
+      setPayments(payRes.data.data || []);
+    } catch (err) {
+      console.error('Portal data error:', err);
+      setHasLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchPortalData = async () => {
-      try {
-        setLoading(true);
-        const [subRes, invRes, payRes] = await Promise.all([
-          api.get('/subscriptions'),
-          api.get('/invoices'),
-          api.get('/payments'),
-        ]);
-        setSubscriptions(subRes.data.data || []);
-        setInvoices(invRes.data.data || []);
-        setPayments(payRes.data.data || []);
-      } catch (err) {
-        console.error('Portal data error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPortalData();
-  }, []);
+    void fetchPortalData();
+  }, [fetchPortalData]);
 
   if (loading) {
     return (
-      <div className="h-64 flex items-center justify-center">
+      <div className="h-64 flex items-center justify-center" role="status" aria-live="polite">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        <span className="sr-only">Loading your account overview</span>
       </div>
+    );
+  }
+
+  if (hasLoadError) {
+    return (
+      <section
+        className="subflow-shell mx-auto max-w-3xl p-6 sm:p-10"
+        role="alert"
+        aria-labelledby="dashboard-load-error-title"
+      >
+        <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-rose-200 bg-rose-50">
+            <AlertCircle className="h-6 w-6 text-rose-700" aria-hidden="true" />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#52645e]">
+              Account overview
+            </p>
+            <h1 id="dashboard-load-error-title" className="editorial-heading mt-2 text-2xl text-slate-900 sm:text-3xl">
+              Your dashboard could not load
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+              We couldn’t retrieve your subscriptions, invoices, and payments. Check your connection and try again.
+            </p>
+            <button
+              type="button"
+              onClick={() => void fetchPortalData()}
+              className="subflow-button-primary mt-5 min-h-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173b32]"
+            >
+              <span>Try Again</span>
+            </button>
+          </div>
+        </div>
+      </section>
     );
   }
 
