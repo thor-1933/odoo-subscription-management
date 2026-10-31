@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../config/db';
 import { authenticate, requireRole } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
-import { roundMoney } from '../utils/decimalUtils';
+import { calculatePercentage, roundMoney, addMoney } from '../utils/decimalUtils';
 
 const router = Router();
 
@@ -49,6 +49,79 @@ router.get('/', authenticate, async (req: Request, res: Response, next: NextFunc
     });
 
     res.json({ success: true, count: plans.length, data: plans });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/plans/:id/checkout
+ * Return the server-calculated demo checkout summary for the current customer.
+ */
+router.get('/:id/checkout', authenticate, requireRole('CUSTOMER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const now = new Date();
+    const plan = await prisma.subscriptionPlan.findUnique({ where: { id: req.params.id } });
+    if (
+      !plan ||
+      !plan.isActive ||
+      plan.availabilityStart > now ||
+      (plan.availabilityEnd && plan.availabilityEnd < now)
+    ) {
+      throw new AppError('This subscription plan is not currently available.', 404);
+    }
+
+    const customer = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { customerProfile: true },
+    });
+    if (!customer?.customerProfile) {
+      throw new AppError('Customer profile is not available for checkout.', 400);
+    }
+
+    const taxRules = await prisma.taxRule.findMany({
+      where: {
+        isActive: true,
+        effectiveFrom: { lte: now },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+        applicableProducts: null,
+      },
+      orderBy: [{ code: 'asc' }, { createdAt: 'asc' }],
+    });
+    const applicableTax = taxRules.find((rule) => rule.code === 'GST-18');
+    const taxRate = applicableTax?.rate ?? 18;
+    const subtotal = roundMoney(plan.price);
+    const taxAmount = calculatePercentage(subtotal, taxRate);
+
+    res.json({
+      success: true,
+      data: {
+        plan: {
+          id: plan.id,
+          name: plan.name,
+          billingFrequency: plan.billingFrequency,
+          price: subtotal,
+          description: plan.description,
+        },
+        customer: {
+          name: customer.name,
+          email: customer.email,
+          companyName: customer.customerProfile.companyName,
+          billingAddress: customer.customerProfile.billingAddress,
+          city: customer.customerProfile.city,
+          state: customer.customerProfile.state,
+          postalCode: customer.customerProfile.postalCode,
+        },
+        pricing: {
+          subtotal,
+          taxName: applicableTax?.name ?? 'GST (standard SaaS rate)',
+          taxRate,
+          taxAmount,
+          total: addMoney(subtotal, taxAmount),
+        },
+        demoMode: true,
+      },
+    });
   } catch (error) {
     next(error);
   }
