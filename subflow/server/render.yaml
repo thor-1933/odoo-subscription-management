@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: subflow-api
+    env: node
+    plan: standard
+    buildCommand: npm install && npx prisma generate --schema prisma/schema.postgresql.prisma && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false
+      - key: ENABLE_BACKGROUND_SCHEDULER
+        value: "true"
+      - key: BILLING_SCHEDULER_CRON
+        value: "0 0 * * *"
